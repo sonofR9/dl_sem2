@@ -22,8 +22,8 @@ class MLPRegressor:
 
         # TODO consider one hidden layer
         for prev_size, curr_size in zip(hidden_layer_sizes, hidden_layer_sizes[1:]):
-            self._weights += np.random.rand((prev_size, curr_size))
-            self._biases += np.random.rand(curr_size)
+            self._weights += [np.random.rand(prev_size, curr_size)]
+            self._biases += [np.random.rand(curr_size)]
 
         self._activation = lambda x: x if x > 0 else 0
         self._activation_derivative = lambda x: 1 if x > 0 else 1
@@ -41,7 +41,7 @@ class MLPRegressor:
         else:
             self._init_knowing_sizes(x, y)
 
-        for epoch in self._max_iter:
+        for epoch in range(self._max_iter):
             for inp, correct in zip(x, y):
                 actual = self._forward(inp, True)
                 loss = self._loss(correct, actual)
@@ -66,7 +66,7 @@ class MLPRegressor:
         return result
 
     def _forward(self, single_input: np.ndarray, train: bool = False) -> np.ndarray:
-        assert single_input.ndim == 1
+        assert single_input.ndim == 1 or single_input.ndim == 0
 
         if (train):
             self._neurons_inputs = []
@@ -74,12 +74,29 @@ class MLPRegressor:
             self._neurons_outputs = [single_input]
 
         last_layer_out = single_input
+
+        if (single_input.ndim == 0):
+            for weights, biases in zip(self._weights, self._biases):
+                neurons_input = last_layer_out * weights + biases
+
+                print(neurons_input.shape)
+
+                last_layer_out = np.apply_along_axis(
+                    self._activation, 0, neurons_input)
+                if (train):
+                    self._neurons_inputs += [neurons_input]
+                    self._neurons_outputs += [last_layer_out]
+
+            return last_layer_out
+
         for weights, biases in zip(self._weights, self._biases):
+
             neurons_input = last_layer_out @ weights + biases
-            last_layer_out = self._activation(neurons_input)
+            last_layer_out = np.apply_along_axis(
+                self._activation, 0, neurons_input)
             if (train):
-                self._neurons_inputs += neurons_input
-                self._neurons_outputs += last_layer_out
+                self._neurons_inputs += [neurons_input]
+                self._neurons_outputs += [last_layer_out]
 
         return last_layer_out
 
@@ -107,13 +124,13 @@ class MLPRegressor:
             self._input_size = x.shape[1]
         first_layer_size = self._weights[0].shape[0]
         self._weights.insert(0, np.random.rand(
-            (self._input_size, first_layer_size)))
+            self._input_size, first_layer_size))
         self._biases.insert(0, np.random.rand(first_layer_size))
 
         self._output_size = y.shape[-1]
         last_layer_size = self._weights[-1].shape[1]
-        self._weights += np.random.rand((last_layer_size, self._output_size))
-        self._biases += np.random.rand(last_layer_size)
+        self._weights += [np.random.rand(last_layer_size, self._output_size)]
+        self._biases += [np.random.rand(last_layer_size)]
 
 
 # Generate a dataset
@@ -122,7 +139,7 @@ y = x * x + 2 * x + 1
 
 # Create an MLPRegressor object
 regressor = MLPRegressor(hidden_layer_sizes=(
-    100,), learning_rate=0.001, max_iter=10)
+    100, 10), learning_rate=0.001, max_iter=10)
 
 # Train the regressor
 regressor.train(x, y)
