@@ -75,23 +75,11 @@ class MLPRegressor:
 
         last_layer_out = single_input
 
-        if (single_input.ndim == 0):
-            for weights, biases in zip(self._weights, self._biases):
-                neurons_input = last_layer_out * weights + biases
-
-                print(neurons_input.shape)
-
-                last_layer_out = np.apply_along_axis(
-                    self._activation, 0, neurons_input)
-                if (train):
-                    self._neurons_inputs += [neurons_input]
-                    self._neurons_outputs += [last_layer_out]
-
-            return last_layer_out
-
         for weights, biases in zip(self._weights, self._biases):
-
-            neurons_input = last_layer_out @ weights + biases
+            if (last_layer_out.ndim == 0):
+                neurons_input = last_layer_out * weights + biases
+            else:
+                neurons_input = last_layer_out @ weights + biases
             last_layer_out = np.apply_along_axis(
                 self._activation, 0, neurons_input)
             if (train):
@@ -103,8 +91,8 @@ class MLPRegressor:
     def _update_weights(self, loss: np.ndarray) -> None:
         dl_dout = self._loss_derivative(loss)
         for i in range(len(self._weights)-1, -1, -1):
-            neurons_backward = self._activation_derivative(
-                self._neurons_inputs[i])
+            neurons_backward = np.apply_along_axis(self._activation_derivative, 0,
+                                                   self._neurons_inputs[i])
             dout_dw = np.outer(neurons_backward, self._neurons_outputs[i])
             dl_dw = dout_dw @ dl_dout
 
@@ -119,7 +107,7 @@ class MLPRegressor:
 
     def _init_knowing_sizes(self, x: np.ndarray, y: np.ndarray) -> None:
         if (x.ndim == 1):
-            self._input_size = x.shape[0]
+            self._input_size = 1
         else:
             self._input_size = x.shape[1]
         first_layer_size = self._weights[0].shape[0]
@@ -130,7 +118,7 @@ class MLPRegressor:
         self._output_size = y.shape[-1]
         last_layer_size = self._weights[-1].shape[1]
         self._weights += [np.random.rand(last_layer_size, self._output_size)]
-        self._biases += [np.random.rand(last_layer_size)]
+        self._biases += [np.random.rand(self._output_size)]
 
 
 # Generate a dataset
