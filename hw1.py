@@ -56,24 +56,59 @@ class MLPRegressor:
         self._activation = lambda x: x if x > 0 else 0
         self._activation_derivative = lambda x: 1 if x > 0 else 1
 
-    def train(self, X: np.ndarray, Y: np.ndarray):
-        if (self._input_size):
-            assert (self._input_size == X.shape[-1])
-            assert (self._output_size == Y.shape[-1])
+    def train(self, x: np.ndarray, y: np.ndarray):
+        if (self._input_size is None):
+            assert self._input_size == x.shape[-1]
+            assert self._output_size == y.shape[-1]
         else:
-            self._input_size = X.shape[1]
-            first_layer_size = self._weights[0].shape[0]
-            self._weights.insert(0, np.ndarray(
-                (self._input_size, first_layer_size)))
-            self._biases.insert(0, np.ndarray(first_layer_size))
+            self._init_knowing_sizes(x, y)
 
-            self._output_size = Y.shape[-1]
-            last_layer_size = self._weights[-1].shape[1]
-            self._weights += np.ndarray(
-                (last_layer_size, self._output_size))
-            self._biases += np.ndarray(last_layer_size)
+    def predict(self, x: np.ndarray):
+        assert self._input_size is not None
 
-        pass
+    def _forward(self, single_input: np.ndarray, train: bool = False) -> None:
+        assert single_input.ndim == 1
 
-    def predict(self, X):
-        pass
+        if (train):
+            self._neurons_inputs = []
+            # save input to neural network (as output of input layer)
+            self._neurons_outputs = [single_input]
+
+        last_layer_out = single_input
+        for weights, biases in zip(self._weights, self._biases):
+            neurons_input = last_layer_out @ weights + biases
+            last_layer_out = self._activation(neurons_input)
+            if (train):
+                self._neurons_inputs += neurons_input
+                self._neurons_outputs += last_layer_out
+
+        return last_layer_out
+
+    def _update_weights(self, loss: np.ndarray) -> None:
+        dl_dout = -2*loss
+        for i in range(len(self._weights)-1, -1, -1):
+            neurons_backward = self._activation_derivative(
+                self._neurons_inputs[i])
+            dout_dw = np.outer(neurons_backward, self._neurons_outputs[i])
+            dl_dw = dout_dw @ dl_dout
+
+            dout_db = neurons_backward @ self._biases[i].T
+            dl_db = dout_db @ dl_dout
+
+            dcurr_dprev = neurons_backward @ self._weights[i].T
+            dl_dout = dcurr_dprev @ dl_dout
+
+            self._weights[i] -= self._learning_rate * dl_dw
+            self._biases -= self._learning_rate * dl_db
+
+    def _init_knowing_sizes(self, x: np.ndarray, y: np.ndarray) -> None:
+        self._input_size = x.shape[1]
+        first_layer_size = self._weights[0].shape[0]
+        self._weights.insert(0, np.ndarray(
+            (self._input_size, first_layer_size)))
+        self._biases.insert(0, np.ndarray(first_layer_size))
+
+        self._output_size = y.shape[-1]
+        last_layer_size = self._weights[-1].shape[1]
+        self._weights += np.ndarray((last_layer_size, self._output_size))
+        self._biases += np.ndarray(last_layer_size)
