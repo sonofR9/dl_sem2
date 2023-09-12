@@ -91,28 +91,16 @@ class MLPRegressor:
     def _update_weights(self, loss: np.ndarray) -> None:
         dl_dout = self._loss_derivative(loss)
         for i in range(len(self._weights)-1, -1, -1):
-            neurons_backward = np.apply_along_axis(self._activation_derivative, 0,
-                                                   self._neurons_inputs[i])
-            dout_dw = np.outer(neurons_backward, self._neurons_outputs[i])
-            if (dl_dout.ndim == 0 or dout_dw.ndim == 0):
-                dl_dw = dl_dout * dout_dw
-            else:
-                dl_dw = dl_dout @ dout_dw
+            neurons_backward = dl_dout * np.apply_along_axis(self._activation_derivative, 0,
+                                                             self._neurons_inputs[i])
 
-            dout_db = neurons_backward @ self._biases[i].T
-            if (dl_dout.ndim == 0 or dout_db.ndim == 0):
-                dl_db = dout_db * dl_dout
-            else:
-                dl_db = dout_db @ dl_dout
-
-            dcurr_dprev = neurons_backward @ self._weights[i].T
-            if (dcurr_dprev.ndim == 0 or dl_dout.ndim == 0):
-                dl_dout = dcurr_dprev * dl_dout
-            else:
-                dl_dout = dcurr_dprev @ dl_dout
+            dl_dw = np.outer(self._neurons_outputs[i], neurons_backward)
+            dl_db = self._biases[i] @ neurons_backward.T
 
             self._weights[i] -= self._learning_rate * dl_dw
-            self._biases -= self._learning_rate * dl_db
+            self._biases[i] -= self._learning_rate * dl_db
+
+            dl_dout = (dl_dout * neurons_backward) @ self._weights[i].T
 
     def _init_knowing_sizes(self, x: np.ndarray, y: np.ndarray) -> None:
         if (x.ndim == 1):
@@ -124,7 +112,10 @@ class MLPRegressor:
             self._input_size, first_layer_size))
         self._biases.insert(0, np.random.rand(first_layer_size))
 
-        self._output_size = y.shape[-1]
+        if (y.ndim == 1):
+            self._output_size = 1
+        else:
+            self._output_size = y.shape[1]
         last_layer_size = self._weights[-1].shape[1]
         self._weights += [np.random.rand(last_layer_size, self._output_size)]
         self._biases += [np.random.rand(self._output_size)]
