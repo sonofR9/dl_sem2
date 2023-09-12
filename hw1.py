@@ -94,13 +94,22 @@ class MLPRegressor:
             neurons_backward = np.apply_along_axis(self._activation_derivative, 0,
                                                    self._neurons_inputs[i])
             dout_dw = np.outer(neurons_backward, self._neurons_outputs[i])
-            dl_dw = dout_dw @ dl_dout
+            if (dl_dout.ndim == 0 or dout_dw.ndim == 0):
+                dl_dw = dl_dout * dout_dw
+            else:
+                dl_dw = dl_dout @ dout_dw
 
             dout_db = neurons_backward @ self._biases[i].T
-            dl_db = dout_db @ dl_dout
+            if (dl_dout.ndim == 0 or dout_db.ndim == 0):
+                dl_db = dout_db * dl_dout
+            else:
+                dl_db = dout_db @ dl_dout
 
             dcurr_dprev = neurons_backward @ self._weights[i].T
-            dl_dout = dcurr_dprev @ dl_dout
+            if (dcurr_dprev.ndim == 0 or dl_dout.ndim == 0):
+                dl_dout = dcurr_dprev * dl_dout
+            else:
+                dl_dout = dcurr_dprev @ dl_dout
 
             self._weights[i] -= self._learning_rate * dl_dw
             self._biases -= self._learning_rate * dl_db
