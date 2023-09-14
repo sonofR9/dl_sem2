@@ -1,9 +1,13 @@
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import numpy as np
 from random import Random
 
 
 class MLPRegressor:
+
+    class Layer:
+        def __init__(self):
+            pass
 
     def __init__(
         self,
@@ -21,15 +25,17 @@ class MLPRegressor:
         self._biases = []
 
         # TODO consider one hidden layer
+        if (len(hidden_layer_sizes) == 1):
+            self._biases += [np.random.rand(hidden_layer_sizes[0])]
         for prev_size, curr_size in zip(hidden_layer_sizes, hidden_layer_sizes[1:]):
-            self._weights += [np.random.rand(prev_size, curr_size)]
+            self._weights += [np.random.rand(curr_size, prev_size)]
             self._biases += [np.random.rand(curr_size)]
 
-        self._activation = lambda x: x if x > 0 else 0
-        self._activation_derivative = lambda x: 1 if x > 0 else 1
+        self._activation = lambda x: np.where(x > 0, x, 0)
+        self._activation_derivative = lambda x: np.where(x > 0, 1, 0)
 
         self._loss = lambda correct, actual: (correct-actual)**2
-        self._loss_derivative = lambda loss: -2*loss
+        self._loss_derivative = lambda loss: 2*loss
 
     def train(self, x: np.ndarray, y: np.ndarray):
         if (self._input_size is not None):
@@ -37,15 +43,22 @@ class MLPRegressor:
                 assert self._input_size == 1, "Input size differs from its previous value!"
             else:
                 assert self._input_size == x.shape[-1], "Input size differs from its previous value!"
-            assert self._output_size == y.shape[-1], "output size differs from its previous value!"
+            if (y.ndim == 1):
+                assert self._output_size == 1, "output size differs from its previous value!"
+            else:
+                assert self._output_size == y.shape[-1], "output size differs from its previous value!"
         else:
             self._init_knowing_sizes(x, y)
 
+        losses = []
         for epoch in range(self._max_iter):
             for inp, correct in zip(x, y):
                 actual = self._forward(inp, True)
                 loss = self._loss(correct, actual)
                 self._update_weights(loss)
+                losses += [loss.reshape(-1)]
+        plt.plot(losses)
+        plt.show()
 
     def predict(self, x: np.ndarray):
         assert self._input_size is not None, "Neural network must be trained first!"
@@ -57,7 +70,7 @@ class MLPRegressor:
                     current = {x.shape[-1]}, during training = {self._input_size}"""
 
         result = []
-        if (x.ndim == 2):
+        if (x.ndim == 2 or (x.ndim == 1 and self._input_size == 1)):
             for inp in x:
                 result += self._forward(inp)
         else:
@@ -75,13 +88,17 @@ class MLPRegressor:
 
         last_layer_out = single_input
 
+        i = 0
         for weights, biases in zip(self._weights, self._biases):
+            i += 1
             if (last_layer_out.ndim == 0):
-                neurons_input = last_layer_out * weights + biases
+                neurons_input = weights * \
+                    last_layer_out + biases.reshape(-1, 1)
             else:
-                neurons_input = last_layer_out @ weights + biases
-            last_layer_out = np.apply_along_axis(
-                self._activation, 0, neurons_input)
+                neurons_input = weights @ last_layer_out + \
+                    biases.reshape(-1, 1)
+
+            last_layer_out = self._activation(neurons_input)
             if (train):
                 self._neurons_inputs += [neurons_input]
                 self._neurons_outputs += [last_layer_out]
@@ -91,33 +108,36 @@ class MLPRegressor:
     def _update_weights(self, loss: np.ndarray) -> None:
         dl_dout = self._loss_derivative(loss)
         for i in range(len(self._weights)-1, -1, -1):
-            neurons_backward = dl_dout * np.apply_along_axis(self._activation_derivative, 0,
-                                                             self._neurons_inputs[i])
+            neurons_backward = dl_dout * \
+                self._activation_derivative(self._neurons_inputs[i])
+            neurons_backward = neurons_backward.reshape(-1)
 
-            dl_dw = np.outer(self._neurons_outputs[i], neurons_backward)
-            dl_db = self._biases[i] @ neurons_backward.T
+            dl_dw = np.outer(neurons_backward, self._neurons_outputs[i])
+            dl_db = self._biases[i] * neurons_backward
 
             self._weights[i] -= self._learning_rate * dl_dw
             self._biases[i] -= self._learning_rate * dl_db
 
-            dl_dout = (dl_dout * neurons_backward) @ self._weights[i].T
+            dl_dout = self._weights[i].T @ neurons_backward
+            dl_dout = dl_dout.reshape(-1, 1)
 
     def _init_knowing_sizes(self, x: np.ndarray, y: np.ndarray) -> None:
         if (x.ndim == 1):
             self._input_size = 1
         else:
             self._input_size = x.shape[1]
-        first_layer_size = self._weights[0].shape[0]
-        self._weights.insert(0, np.random.rand(
-            self._input_size, first_layer_size))
+        first_layer_size = self._biases[0].size
+        self._weights.insert(0, np.random.rand(first_layer_size,
+                                               self._input_size))
+        # TODO(novak) no insertions?
         self._biases.insert(0, np.random.rand(first_layer_size))
 
         if (y.ndim == 1):
             self._output_size = 1
         else:
             self._output_size = y.shape[1]
-        last_layer_size = self._weights[-1].shape[1]
-        self._weights += [np.random.rand(last_layer_size, self._output_size)]
+        last_layer_size = self._biases[-1].size
+        self._weights += [np.random.rand(self._output_size, last_layer_size)]
         self._biases += [np.random.rand(self._output_size)]
 
 
@@ -127,7 +147,7 @@ y = x * x + 2 * x + 1
 
 # Create an MLPRegressor object
 regressor = MLPRegressor(hidden_layer_sizes=(
-    100, 10), learning_rate=0.001, max_iter=10)
+    3, 2), learning_rate=0.001, max_iter=10)
 
 # Train the regressor
 regressor.train(x, y)
@@ -136,7 +156,8 @@ regressor.train(x, y)
 predicted_y = regressor.predict(x)
 
 # Plot the results
-plt.plot(x, y, label="Actual")
-plt.plot(x, predicted_y, label="Predicted")
-plt.legend()
-plt.show()
+# plt.plot(x, y, label="Actual")
+# plt.plot(x, predicted_y, label="Predicted")
+# plt.legend()
+# plt.show()
+input()
