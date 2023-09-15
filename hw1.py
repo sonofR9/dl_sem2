@@ -25,17 +25,16 @@ class MLPRegressor:
         self._biases = []
 
         # TODO consider one hidden layer
-        if (len(hidden_layer_sizes) == 1):
-            self._biases += [np.random.rand(hidden_layer_sizes[0])]
+        self._biases.append(np.random.rand(hidden_layer_sizes[0]))
         for prev_size, curr_size in zip(hidden_layer_sizes, hidden_layer_sizes[1:]):
-            self._weights += [np.random.rand(curr_size, prev_size)]
-            self._biases += [np.random.rand(curr_size)]
+            self._weights.append(np.random.rand(curr_size, prev_size))
+            self._biases.append(np.random.rand(curr_size))
 
         self._activation = lambda x: np.where(x > 0, x, 0)
         self._activation_derivative = lambda x: np.where(x > 0, 1, 0)
 
-        self._loss = lambda correct, actual: (correct-actual)**2
-        self._loss_derivative = lambda loss: 2*loss
+        self._loss = lambda actual, predicted: (actual-predicted)**2
+        self._loss_derivative = lambda actual, predicted: -2*(actual-predicted)
 
     def train(self, x: np.ndarray, y: np.ndarray):
         if (self._input_size is not None):
@@ -52,11 +51,11 @@ class MLPRegressor:
 
         losses = []
         for epoch in range(self._max_iter):
-            for inp, correct in zip(x, y):
-                actual = self._forward(inp, True)
-                loss = self._loss(correct, actual)
-                self._update_weights(loss)
-                losses += [loss.reshape(-1)]
+            for inp, actual in zip(x, y):
+                predicted = self._forward(inp, True)
+                loss = self._loss(actual, predicted)
+                self._update_weights(actual, predicted)
+                losses.append(loss)
         plt.plot(losses)
         plt.show()
 
@@ -72,7 +71,7 @@ class MLPRegressor:
         result = []
         if (x.ndim == 2 or (x.ndim == 1 and self._input_size == 1)):
             for inp in x:
-                result += self._forward(inp)
+                result.append(self._forward(inp))
         else:
             result = self._forward(x)
 
@@ -100,20 +99,25 @@ class MLPRegressor:
 
             last_layer_out = self._activation(neurons_input)
             if (train):
-                self._neurons_inputs += [neurons_input]
-                self._neurons_outputs += [last_layer_out]
+                self._neurons_inputs.append(neurons_input)
+                self._neurons_outputs.append(last_layer_out)
 
-        return last_layer_out
+        return last_layer_out.reshape(-1)
 
-    def _update_weights(self, loss: np.ndarray) -> None:
-        dl_dout = self._loss_derivative(loss)
+    def _update_weights(self, actual: np.ndarray, predicted: np.ndarray) -> None:
+        dl_dout = self._loss_derivative(actual, predicted)
         for i in range(len(self._weights)-1, -1, -1):
+            last_input = self._neurons_inputs[i]
+            prev_out = self._neurons_outputs[i]
+            weights = self._weights[i]
+            bias = self._biases[i]
+
             neurons_backward = dl_dout * \
                 self._activation_derivative(self._neurons_inputs[i])
             neurons_backward = neurons_backward.reshape(-1)
 
             dl_dw = np.outer(neurons_backward, self._neurons_outputs[i])
-            dl_db = self._biases[i] * neurons_backward
+            dl_db = neurons_backward
 
             self._weights[i] -= self._learning_rate * dl_dw
             self._biases[i] -= self._learning_rate * dl_db
@@ -129,21 +133,21 @@ class MLPRegressor:
         first_layer_size = self._biases[0].size
         self._weights.insert(0, np.random.rand(first_layer_size,
                                                self._input_size))
-        # TODO(novak) no insertions?
-        self._biases.insert(0, np.random.rand(first_layer_size))
 
         if (y.ndim == 1):
             self._output_size = 1
         else:
             self._output_size = y.shape[1]
         last_layer_size = self._biases[-1].size
-        self._weights += [np.random.rand(self._output_size, last_layer_size)]
-        self._biases += [np.random.rand(self._output_size)]
+        self._weights.append(np.random.rand(
+            self._output_size, last_layer_size))
+        self._biases.append(np.random.rand(self._output_size))
 
 
 # Generate a dataset
 x = np.linspace(0, 1, 100)
 y = x * x + 2 * x + 1
+y = np.ones_like(x)
 
 # Create an MLPRegressor object
 regressor = MLPRegressor(hidden_layer_sizes=(
@@ -156,8 +160,8 @@ regressor.train(x, y)
 predicted_y = regressor.predict(x)
 
 # Plot the results
-# plt.plot(x, y, label="Actual")
-# plt.plot(x, predicted_y, label="Predicted")
+plt.plot(x, y, label="Actual")
+# plt.plot(x, predicted_y[:][0], label="Predicted")
 # plt.legend()
 # plt.show()
 input()
