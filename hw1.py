@@ -119,11 +119,11 @@ class MLPRegressor:
             dl_dw = np.outer(neurons_backward, self._neurons_outputs[i])
             dl_db = neurons_backward
 
-            self._weights[i] -= self._learning_rate * dl_dw
-            self._biases[i] -= self._learning_rate * dl_db
-
             dl_dout = self._weights[i].T @ neurons_backward
             dl_dout = dl_dout.reshape(-1, 1)
+
+            self._weights[i] -= self._learning_rate * dl_dw
+            self._biases[i] -= self._learning_rate * dl_db
 
     def _init_knowing_sizes(self, x: np.ndarray, y: np.ndarray) -> None:
         if (x.ndim == 1):
@@ -145,13 +145,12 @@ class MLPRegressor:
 
 
 # Generate a dataset
-x = np.linspace(0, 1, 100)
-y = x * x + 2 * x + 1
-y = np.ones_like(x)
+x = np.linspace(0, 1, 10)
+y = x * x * x + 2 * x + 1
 
 # Create an MLPRegressor object
 regressor = MLPRegressor(hidden_layer_sizes=(
-    3, 2), learning_rate=0.001, max_iter=10)
+    3, 2), learning_rate=0.001, max_iter=100)
 
 # Train the regressor
 regressor.train(x, y)
