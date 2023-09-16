@@ -12,6 +12,10 @@ class Layer:
         self._activation = lambda x: np.where(x > 0, x, 0)
         self._activation_derivative = lambda x: np.where(x > 0, 1, 0)
 
+        # sigmoid = lambda x: 1.0 / (1.0 + np.exp(-x))
+        # self._activation = lambda x: sigmoid(x)
+        # self._activation_derivative = lambda x: sigmoid(x) * (1 - sigmoid(x))
+
     def forward(self, input: np.ndarray) -> np.ndarray:
         if input.ndim == 0:
             self.neurons_input = self.weights * input + self.biases
