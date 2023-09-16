@@ -126,6 +126,12 @@ class MLPRegressor:
         else:
             self._init_knowing_sizes(x, y)
 
+        self._x_norm_coef = x.mean()
+        x /= self._x_norm_coef
+
+        self._y_norm_coef = y.mean()
+        y /= self._y_norm_coef
+
         losses = []
         for epoch in range(self._max_iter):
             for inp, actual in zip(x, y):
@@ -133,9 +139,7 @@ class MLPRegressor:
                 loss = self._loss(actual, predicted)
                 self._update_weights(actual, predicted)
                 losses.append(loss)
-        plt.plot(np.array(losses)[:, 0])
-        plt.plot(np.array(losses)[:, 1])
-        plt.show()
+        return losses
 
     def predict(self, x: np.ndarray):
         assert self._input_size is not None, "Neural network must be trained first!"
@@ -150,6 +154,8 @@ class MLPRegressor:
             ), """Input size differs from training! 
                     current = {x.shape[-1]}, during training = {self._input_size}"""
 
+        x /= self._x_norm_coef
+
         result = []
         if x.ndim == 2 or (x.ndim == 1 and self._input_size == 1):
             for inp in x:
@@ -157,7 +163,7 @@ class MLPRegressor:
         else:
             result = self._forward(x)
 
-        return np.array(result)
+        return np.array(result) * self._y_norm_coef
 
     def _forward(self, single_input: np.ndarray, train: bool = False) -> np.ndarray:
         assert single_input.ndim == 1 or single_input.ndim == 0
@@ -204,18 +210,22 @@ class MLPRegressor:
 
 # Generate a dataset
 x = np.linspace((0, 0), (1000, 1000), 100)
-y = x * x + 2 * x + 1
+y = 2 * x + 1
 
 # Create an MLPRegressor object
 regressor = MLPRegressor(
-    hidden_layer_sizes=(30,),
+    hidden_layer_sizes=(2,),
     learning_rate=0.001,
     max_iter=100,
     activation=LeakedReLu(1),
 )
 
 # Train the regressor
-regressor.train(x, y)
+losses = regressor.train(x, y)
+
+plt.plot(np.array(losses)[:, 0])
+plt.plot(np.array(losses)[:, 1])
+plt.show()
 
 # Predict the values of y for the given values of x
 predicted_y = regressor.predict(x)
