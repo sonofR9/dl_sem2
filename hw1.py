@@ -2,33 +2,71 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+class Activation:
+    def forward(self, inp: np.ndarray) -> np.ndarray:
+        return inp
+
+    def backward(self, inp: np.ndarray) -> np.ndarray:
+        return 1
+
+
+class Linear(Activation):
+    def forward(self, inp: np.ndarray) -> np.ndarray:
+        return inp
+
+    def backward(self, inp: np.ndarray) -> np.ndarray:
+        return 1
+
+
+class LeakedReLu(Activation):
+    def __init__(self, alpha: float):
+        self.alpha = alpha
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        return np.where(x > 0, x, self.alpha * x)
+
+    def backward(self, x: np.ndarray) -> np.ndarray:
+        return np.where(x > 0, 1, self.alpha)
+
+
+class Sigmoid(Activation):
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        return self._sigmoid(x)
+
+    def backward(self, x: np.ndarray) -> np.ndarray:
+        return self._sigmoid(x) * (1 - self._sigmoid(x))
+
+    def _sigmoid(self, x: np.ndarray) -> np.ndarray:
+        return 1.0 / (1.0 + np.exp(-x))
+
+
 class Layer:
-    def __init__(self, prev_size: int, size: int, learning_rate: float):
+    def __init__(
+        self, prev_size: int, size: int, learning_rate: float, activation: Activation
+    ):
         self.learning_rate = learning_rate
         self.biases = np.random.rand(size).reshape(-1, 1) / 10
         if prev_size is not None and prev_size != 0:
             self.weights = np.random.rand(size, prev_size) / 10
 
-        self._activation = lambda x: np.where(x > 0, x, 0)
-        self._activation_derivative = lambda x: np.where(x > 0, 1, 0)
-
-        # sigmoid = lambda x: 1.0 / (1.0 + np.exp(-x))
-        # self._activation = lambda x: sigmoid(x)
-        # self._activation_derivative = lambda x: sigmoid(x) * (1 - sigmoid(x))
+        self._activation = activation
 
     def forward(self, input: np.ndarray) -> np.ndarray:
         if input.ndim == 0:
             self.neurons_input = self.weights * input + self.biases
         else:
             self.neurons_input = self.weights @ input + self.biases
-        return self._activation(self.neurons_input)
+        return self._activation.forward(self.neurons_input)
 
     def backward_with_update(
         self, error: np.ndarray, prev_out: np.ndarray
     ) -> np.ndarray:
         dl_dout = error.reshape(-1, 1)
+        limit = 1
+        dl_dout = np.where(dl_dout < limit, dl_dout, limit)
+        dl_dout = np.where(dl_dout > -limit, dl_dout, -limit)
 
-        neurons_backward = dl_dout * self._activation_derivative(self.neurons_input)
+        neurons_backward = dl_dout * self._activation.backward(self.neurons_input)
         neurons_backward = neurons_backward.reshape(-1)
 
         dl_dw = np.outer(neurons_backward, prev_out)
@@ -48,6 +86,7 @@ class MLPRegressor:
         hidden_layer_sizes: tuple = (100,),
         learning_rate: float = 0.001,
         max_iter: int = 10,
+        activation: Activation = Sigmoid(),
     ):
         self._learning_rate = learning_rate
         self._max_iter = max_iter
@@ -57,9 +96,11 @@ class MLPRegressor:
         self._input_size = None
         self._output_size = None
 
-        self._layers.append(Layer(None, hidden_layer_sizes[0], learning_rate))
+        self._layers.append(
+            Layer(None, hidden_layer_sizes[0], learning_rate, activation)
+        )
         for prev_size, curr_size in zip(hidden_layer_sizes, hidden_layer_sizes[1:]):
-            self._layers.append(Layer(prev_size, curr_size, learning_rate))
+            self._layers.append(Layer(prev_size, curr_size, learning_rate, activation))
 
         self._loss = lambda actual, predicted: (actual - predicted) ** 2
         self._loss_derivative = lambda actual, predicted: -2 * (actual - predicted)
@@ -157,16 +198,21 @@ class MLPRegressor:
             self._output_size = y.shape[1]
         last_layer_size = self._layers[-1].biases.size
         self._layers.append(
-            Layer(last_layer_size, self._output_size, self._learning_rate)
+            Layer(last_layer_size, self._output_size, self._learning_rate, Linear())
         )
 
 
 # Generate a dataset
-x = np.linspace((0, 0), (1, 1), 100)
+x = np.linspace((0, 0), (1000, 1000), 100)
 y = x * x + 2 * x + 1
 
 # Create an MLPRegressor object
-regressor = MLPRegressor(hidden_layer_sizes=(30,), learning_rate=0.001, max_iter=100)
+regressor = MLPRegressor(
+    hidden_layer_sizes=(30,),
+    learning_rate=0.001,
+    max_iter=100,
+    activation=LeakedReLu(1),
+)
 
 # Train the regressor
 regressor.train(x, y)
