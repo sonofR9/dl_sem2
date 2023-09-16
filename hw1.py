@@ -1,35 +1,41 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from random import Random
 
 
 class Layer:
     def __init__(self, prev_size: int, size: int, learning_rate: float):
         self.learning_rate = learning_rate
         self.biases = np.random.rand(size).reshape(-1, 1)
-        if (prev_size is not None and prev_size != 0):
+        if prev_size is not None and prev_size != 0:
             self.weights = np.random.rand(size, prev_size)
 
         self._activation = lambda x: np.where(x > 0, x, 0)
         self._activation_derivative = lambda x: np.where(x > 0, 1, 0)
 
-    def forward(self, single_input: np.ndarray) -> np.ndarray:
-        if (single_input.ndim == 0):
-            self.neurons_input = self.weights * single_input + self.biases
+    def forward(self, input: np.ndarray) -> np.ndarray:
+        if input.ndim == 0:
+            self.neurons_input = self.weights * input + self.biases
         else:
-            self.neurons_input = self.weights @ single_input + self.biases
+            self.neurons_input = self.weights @ input + self.biases
         return self._activation(self.neurons_input)
 
-    def backward_with_update(self, error: np.ndarray, prev_out: np.ndarray) -> np.ndarray:
-        dl_dout = error.reshape(-1, 1)
+    def backward_with_update(
+        self, error: np.ndarray, prev_out: np.ndarray
+    ) -> np.ndarray:
+        if error.ndim == 1:
+            dl_dout = error.reshape(-1, 1)
+        else:
+            dl_dout = error.reshape(error.shape[0], -1, 1)
 
-        neurons_backward = dl_dout * \
-            self._activation_derivative(self.neurons_input)
-        neurons_backward = neurons_backward.reshape(-1)
-        # neurons_backward = neurons_backward.reshape([0].size, -1)
-
-        dl_dw = np.outer(neurons_backward, prev_out)
-        dl_db = neurons_backward
+        neurons_backward = dl_dout * self._activation_derivative(self.neurons_input)
+        if error.ndim == 1:
+            neurons_backward = neurons_backward.reshape(-1)
+            dl_dw = np.outer(neurons_backward, prev_out)
+            dl_db = neurons_backward
+        else:
+            neurons_backward = neurons_backward.reshape(error.shape[0], -1)
+            dl_dw = np.outer(neurons_backward, prev_out)
+            dl_db = neurons_backward
 
         dl_dout = self.weights.T @ neurons_backward
 
@@ -40,7 +46,6 @@ class Layer:
 
 
 class MLPRegressor:
-
     def __init__(
         self,
         hidden_layer_sizes: tuple = (100,),
@@ -55,25 +60,31 @@ class MLPRegressor:
         self._input_size = None
         self._output_size = None
 
-        self._layers.append(Layer(
-            None, hidden_layer_sizes[0], learning_rate))
+        self._layers.append(Layer(None, hidden_layer_sizes[0], learning_rate))
         for prev_size, curr_size in zip(hidden_layer_sizes, hidden_layer_sizes[1:]):
-            self._layers.append(Layer(
-                prev_size, curr_size, learning_rate))
+            self._layers.append(Layer(prev_size, curr_size, learning_rate))
 
-        self._loss = lambda actual, predicted: (actual-predicted)**2
-        self._loss_derivative = lambda actual, predicted: -2*(actual-predicted)
+        self._loss = lambda actual, predicted: (actual - predicted) ** 2
+        self._loss_derivative = lambda actual, predicted: -2 * (actual - predicted)
 
     def train(self, x: np.ndarray, y: np.ndarray):
-        if (self._input_size is not None):
-            if (x.ndim == 1):
-                assert self._input_size == 1, "Input size differs from its previous value!"
+        if self._input_size is not None:
+            if x.ndim == 1:
+                assert (
+                    self._input_size == 1
+                ), "Input size differs from its previous value!"
             else:
-                assert self._input_size == x.shape[-1], "Input size differs from its previous value!"
-            if (y.ndim == 1):
-                assert self._output_size == 1, "output size differs from its previous value!"
+                assert (
+                    self._input_size == x.shape[-1]
+                ), "Input size differs from its previous value!"
+            if y.ndim == 1:
+                assert (
+                    self._output_size == 1
+                ), "output size differs from its previous value!"
             else:
-                assert self._output_size == y.shape[-1], "output size differs from its previous value!"
+                assert (
+                    self._output_size == y.shape[-1]
+                ), "output size differs from its previous value!"
         else:
             self._init_knowing_sizes(x, y)
 
@@ -90,15 +101,19 @@ class MLPRegressor:
 
     def predict(self, x: np.ndarray):
         assert self._input_size is not None, "Neural network must be trained first!"
-        if (x.ndim == 1):
-            assert self._input_size == 1, """Input size differs from training! 
+        if x.ndim == 1:
+            assert (
+                self._input_size == 1
+            ), """Input size differs from training! 
                     current = 1, during training = {self._input_size}"""
         else:
-            assert self._input_size == x.shape[-1], """Input size differs from training! 
+            assert (
+                self._input_size == x.shape[-1]
+            ), """Input size differs from training! 
                     current = {x.shape[-1]}, during training = {self._input_size}"""
 
         result = []
-        if (x.ndim == 2 or (x.ndim == 1 and self._input_size == 1)):
+        if x.ndim == 2 or (x.ndim == 1 and self._input_size == 1):
             for inp in x:
                 result.append(self._forward(inp))
         else:
@@ -109,14 +124,14 @@ class MLPRegressor:
     def _forward(self, single_input: np.ndarray, train: bool = False) -> np.ndarray:
         assert single_input.ndim == 1 or single_input.ndim == 0
 
-        if (train):
+        if train:
             self._neurons_outputs = [single_input]
 
         last_layer_out = single_input.reshape(-1, 1)
 
         for layer in self._layers:
             last_layer_out = layer.forward(last_layer_out)
-            if (train):
+            if train:
                 self._neurons_outputs.append(last_layer_out)
 
         return last_layer_out.reshape(-1)
@@ -124,26 +139,27 @@ class MLPRegressor:
     def _update_weights(self, actual: np.ndarray, predicted: np.ndarray) -> None:
         dl_dout = self._loss_derivative(actual, predicted)
 
-        for i in range(len(self._layers)-1, -1, -1):
+        for i in range(len(self._layers) - 1, -1, -1):
             dl_dout = self._layers[i].backward_with_update(
-                dl_dout, self._neurons_outputs[i])
+                dl_dout, self._neurons_outputs[i]
+            )
 
     def _init_knowing_sizes(self, x: np.ndarray, y: np.ndarray) -> None:
-        if (x.ndim == 1):
+        if x.ndim == 1:
             self._input_size = 1
         else:
             self._input_size = x.shape[1]
         first_layer_size = self._layers[0].biases.size
-        self._layers[0].weights = np.random.rand(first_layer_size,
-                                                 self._input_size)
+        self._layers[0].weights = np.random.rand(first_layer_size, self._input_size)
 
-        if (y.ndim == 1):
+        if y.ndim == 1:
             self._output_size = 1
         else:
             self._output_size = y.shape[1]
         last_layer_size = self._layers[-1].biases.size
-        self._layers.append(Layer(
-            last_layer_size, self._output_size, self._learning_rate))
+        self._layers.append(
+            Layer(last_layer_size, self._output_size, self._learning_rate)
+        )
 
 
 # Generate a dataset
@@ -151,8 +167,7 @@ x = np.linspace((0, 0), (1, 1), 100)
 y = x * x + 2 * x + 1
 
 # Create an MLPRegressor object
-regressor = MLPRegressor(hidden_layer_sizes=(
-    30,), learning_rate=0.001, max_iter=100)
+regressor = MLPRegressor(hidden_layer_sizes=(30,), learning_rate=0.001, max_iter=100)
 
 # Train the regressor
 regressor.train(x, y)
