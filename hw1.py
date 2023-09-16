@@ -2,8 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-class MLPRegressor:
-
 class Layer:
     def __init__(self, prev_size: int, size: int, learning_rate: float):
         self.learning_rate = learning_rate
@@ -11,8 +9,8 @@ class Layer:
         if prev_size is not None and prev_size != 0:
             self.weights = np.random.rand(size, prev_size)
 
-            self._activation = lambda x: np.where(x > 0, x, 0)
-            self._activation_derivative = lambda x: np.where(x > 0, 1, 0)
+        self._activation = lambda x: np.where(x > 0, x, 0)
+        self._activation_derivative = lambda x: np.where(x > 0, 1, 0)
 
     def forward(self, input: np.ndarray) -> np.ndarray:
         if input.ndim == 0:
@@ -21,22 +19,23 @@ class Layer:
             self.neurons_input = self.weights @ input + self.biases
         return self._activation(self.neurons_input)
 
-        def backward_with_update(self, error: np.ndarray, prev_out: np.ndarray) -> np.ndarray:
-            dl_dout = error.reshape(-1, 1)
+    def backward_with_update(
+        self, error: np.ndarray, prev_out: np.ndarray
+    ) -> np.ndarray:
+        dl_dout = error.reshape(-1, 1)
 
-            neurons_backward = dl_dout * \
-                self._activation_derivative(self.neurons_input)
-            neurons_backward = neurons_backward.reshape(-1)
+        neurons_backward = dl_dout * self._activation_derivative(self.neurons_input)
+        neurons_backward = neurons_backward.reshape(-1)
 
-            dl_dw = np.outer(neurons_backward, prev_out)
-            dl_db = neurons_backward
+        dl_dw = np.outer(neurons_backward, prev_out)
+        dl_db = neurons_backward
 
-            dl_dout = self.weights.T @ neurons_backward
+        dl_dout = self.weights.T @ neurons_backward
 
-            self.weights -= self.learning_rate * dl_dw
-            self.biases -= self.learning_rate * dl_db.reshape(-1, 1)
+        self.weights -= self.learning_rate * dl_dw
+        self.biases -= self.learning_rate * dl_db.reshape(-1, 1)
 
-            return dl_dout
+        return dl_dout
 
 
 class MLPRegressor:
@@ -53,8 +52,6 @@ class MLPRegressor:
 
         self._input_size = None
         self._output_size = None
-        # self._weights = []
-        # self._biases = []
 
         self._layers.append(Layer(None, hidden_layer_sizes[0], learning_rate))
         for prev_size, curr_size in zip(hidden_layer_sizes, hidden_layer_sizes[1:]):
@@ -125,13 +122,6 @@ class MLPRegressor:
 
         last_layer_out = single_input.reshape(-1, 1)
 
-        # for weights, biases in zip(self._weights, self._biases):
-        #     if (last_layer_out.ndim == 0):
-        #         neurons_input = weights * \
-        #             last_layer_out + biases.reshape(-1, 1)
-        #     else:
-        #         neurons_input = weights @ last_layer_out + \
-        #             biases.reshape(-1, 1)
         for layer in self._layers:
             last_layer_out = layer.forward(last_layer_out)
             if train:
@@ -152,7 +142,6 @@ class MLPRegressor:
             self._input_size = 1
         else:
             self._input_size = x.shape[1]
-        # first_layer_size = self._biases[0].size
         first_layer_size = self._layers[0].biases.size
         self._layers[0].weights = np.random.rand(first_layer_size, self._input_size)
 
@@ -160,7 +149,6 @@ class MLPRegressor:
             self._output_size = 1
         else:
             self._output_size = y.shape[1]
-        # last_layer_size = self._biases[-1].size
         last_layer_size = self._layers[-1].biases.size
         self._layers.append(
             Layer(last_layer_size, self._output_size, self._learning_rate)
