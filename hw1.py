@@ -5,9 +5,9 @@ import numpy as np
 class Layer:
     def __init__(self, prev_size: int, size: int, learning_rate: float):
         self.learning_rate = learning_rate
-        self.biases = np.random.rand(size).reshape(-1, 1)
+        self.biases = np.random.rand(size).reshape(-1, 1) / 10
         if prev_size is not None and prev_size != 0:
-            self.weights = np.random.rand(size, prev_size)
+            self.weights = np.random.rand(size, prev_size) / 10
 
         self._activation = lambda x: np.where(x > 0, x, 0)
         self._activation_derivative = lambda x: np.where(x > 0, 1, 0)
@@ -143,7 +143,9 @@ class MLPRegressor:
         else:
             self._input_size = x.shape[1]
         first_layer_size = self._layers[0].biases.size
-        self._layers[0].weights = np.random.rand(first_layer_size, self._input_size)
+        self._layers[0].weights = (
+            np.random.rand(first_layer_size, self._input_size) / 10
+        )
 
         if y.ndim == 1:
             self._output_size = 1
