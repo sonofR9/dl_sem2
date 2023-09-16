@@ -72,9 +72,9 @@ class Layer:
         self._backward_count += 1
 
         dl_dout = error.reshape(-1, 1)
-        # limit = 1
-        # dl_dout = np.where(dl_dout < limit, dl_dout, limit)
-        # dl_dout = np.where(dl_dout > -limit, dl_dout, -limit)
+        limit = 1
+        dl_dout = np.where(dl_dout < limit, dl_dout, limit)
+        dl_dout = np.where(dl_dout > -limit, dl_dout, -limit)
 
         neurons_backward = dl_dout * self._activation.backward(self.neurons_input)
         neurons_backward = neurons_backward.reshape(-1)
@@ -101,9 +101,11 @@ class MLPRegressor:
         learning_rate: float = 0.001,
         max_iter: int = 10,
         activation: Activation = Sigmoid(),
+        batch: int = 10,
     ):
         self._learning_rate = learning_rate
         self._max_iter = max_iter
+        self._batch = batch
 
         self._layers = []
 
@@ -154,8 +156,9 @@ class MLPRegressor:
                 predicted = self._forward(inp, True)
                 loss = self._loss(actual, predicted)
                 self._backward(actual, predicted)
-                self._update_weights()
                 i += 1
+                if i % self.batch == 0:
+                    self._update_weights()
                 if i % int(x.shape[0] / 10) == 1:
                     losses.append(loss)
 
@@ -269,7 +272,7 @@ y = 2 * x * x + 1
 regressor = MLPRegressor(
     hidden_layer_sizes=(10,),
     learning_rate=0.001,
-    max_iter=200,
+    max_iter=20,
     activation=LeakedReLu(0.1),
 )
 
