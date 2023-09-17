@@ -72,9 +72,9 @@ class Layer:
         self._backward_count += 1
 
         dl_dout = error.reshape(-1, 1)
-        limit = 1
-        dl_dout = np.where(dl_dout < limit, dl_dout, limit)
-        dl_dout = np.where(dl_dout > -limit, dl_dout, -limit)
+        # limit = 1
+        # dl_dout = np.where(dl_dout < limit, dl_dout, limit)
+        # dl_dout = np.where(dl_dout > -limit, dl_dout, -limit)
 
         neurons_backward = dl_dout * self._activation.backward(self.neurons_input)
         neurons_backward = neurons_backward.reshape(-1)
@@ -150,17 +150,20 @@ class MLPRegressor:
 
         losses = []
 
-        for epoch in range(self._max_iter):
+        for _ in range(self._max_iter):
             i = 0
+            losses_buf = []
             for inp, actual in zip(x, y):
                 predicted = self._forward(inp, True)
                 loss = self._loss(actual, predicted)
                 self._backward(actual, predicted)
                 i += 1
-                if i % self.batch == 0:
+                losses_buf.append(loss * self._y_norm_coef)
+                if i % self._batch == 0:
                     self._update_weights()
                 if i % int(x.shape[0] / 10) == 1:
-                    losses.append(loss)
+                    losses.append(sum(losses_buf) / len(losses_buf))
+                    losses_buf = []
 
         return losses
 
@@ -169,12 +172,12 @@ class MLPRegressor:
         if x.ndim == 1:
             assert (
                 self._input_size == 1
-            ), """Input size differs from training! 
+            ), f"""Input size differs from training! 
                     current = 1, during training = {self._input_size}"""
         else:
             assert (
                 self._input_size == x.shape[-1]
-            ), """Input size differs from training! 
+            ), f"""Input size differs from training! 
                     current = {x.shape[-1]}, during training = {self._input_size}"""
 
         x = x / self._x_norm_coef
@@ -265,24 +268,25 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 
 # Generate a dataset
-x = np.linspace((0, 0), (1000, 1000), 100)
-y = 2 * x * x + 1
+# x = np.linspace((0, 0), (1000, 1000), 1000)
+# y = 2 * x * x + 1
 
 # Create an MLPRegressor object
 regressor = MLPRegressor(
-    hidden_layer_sizes=(10,),
-    learning_rate=0.001,
+    hidden_layer_sizes=(1,),
+    learning_rate=1e-4,
     max_iter=20,
-    activation=LeakedReLu(0.1),
+    activation=Linear(),  # LeakedReLu(0.1)
+    batch=16,
 )
 
 # Train the regressor
-# losses = regressor.train(X_train, y_train)
-# plt.plot(np.array(losses))
+losses = regressor.train(X_train, y_train)
+plt.plot(np.array(losses))
 
-losses = regressor.train(x, y)
-plt.plot(np.array(losses)[:, 0])
-plt.plot(np.array(losses)[:, 1])
+# losses = regressor.train(x, y)
+# plt.plot(np.array(losses)[:, 0])
+# plt.plot(np.array(losses)[:, 1])
 plt.show()
 
 # Predict the values of y for the given values of x
