@@ -1,9 +1,6 @@
 MNIST
 checks.json
 
-Pytorch 
-I have Sequential neural network (in variable network). I want to train it (I have train_loader and test_loader) and get loss and accuracy from each epoch. How can I do it?
-
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode
 
